@@ -1,6 +1,5 @@
 {
   "version": 2,
-  "name": "fellowship-attendance-frontend",
   "builds": [
     {
       "src": "index.html",
@@ -12,6 +11,5 @@
       "src": "/(.*)",
       "dest": "/index.html"
     }
-  ],
-  "functions": {}
+  ]
 }
