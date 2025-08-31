@@ -1,0 +1,13 @@
+{
+  "name": "fellowship-attendance-frontend",
+  "version": "1.0.0",
+  "description": "Fellowship Attendance Dashboard Frontend",
+  "scripts": {
+    "build": "echo 'Static HTML build complete'",
+    "start": "echo 'Static HTML served'",
+    "dev": "echo 'Development mode'"
+  },
+  "keywords": ["fellowship", "attendance", "dashboard"],
+  "author": "Your Name",
+  "license": "MIT"
+}
