@@ -1,244 +1,157 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Fellowship Attendance Dashboard</title>
-  <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    h2 { margin-top: 30px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-    th { background: #f4f4f4; }
-    button { cursor: pointer; }
-    .btn { border: none; padding: 6px 12px; border-radius: 6px; }
-    .btn-secondary { background: #007bff; color: white; }
-    .btn-danger { background: #dc3545; color: white; }
-    .message { margin: 10px 0; padding: 8px; border-radius: 6px; }
-    .message.success { background: #d4edda; color: #155724; }
-    .message.error { background: #f8d7da; color: #721c24; }
-    .empty-state { text-align: center; font-style: italic; color: #666; }
-  </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Fellowship Attendance</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-  <h1>📊 Fellowship Attendance Dashboard</h1>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center p-6">
+  <div class="w-full max-w-4xl bg-white rounded-2xl shadow-lg p-6">
+    <h1 class="text-2xl font-bold text-center mb-6">📖 Fellowship Attendance</h1>
 
-  <div id="messages"></div>
+    <!-- Navigation -->
+    <div class="flex justify-center gap-4 mb-6">
+      <button onclick="showSection('members')" class="tab-btn">👥 Members</button>
+      <button onclick="showSection('attendance')" class="tab-btn">✅ Mark Attendance</button>
+      <button onclick="showSection('report')" class="tab-btn">📊 Report</button>
+    </div>
 
-  <!-- Members -->
-  <h2>Members</h2>
-  <form id="addMemberForm">
-    <input type="text" id="memberName" placeholder="Name" required>
-    <input type="email" id="memberEmail" placeholder="Email" required>
-    <input type="text" id="memberPhone" placeholder="Phone">
-    <button type="submit" class="btn btn-secondary">➕ Add Member</button>
-  </form>
-  <table>
-    <thead>
-      <tr>
-        <th>Name</th><th>Email</th><th>Phone</th><th>Joined</th><th>Actions</th>
-      </tr>
-    </thead>
-    <tbody id="membersTableBody"></tbody>
-  </table>
+    <!-- Sections -->
+    <div id="members" class="section">
+      <h2 class="text-xl font-semibold mb-4">Members</h2>
+      <form id="addMemberForm" class="flex gap-2 mb-4">
+        <input type="text" id="name" placeholder="Name" class="input"/>
+        <input type="text" id="phone" placeholder="Phone" class="input"/>
+        <button class="btn bg-blue-600 hover:bg-blue-700">Add</button>
+      </form>
+      <ul id="memberList" class="space-y-2"></ul>
+    </div>
 
-  <!-- Sessions -->
-  <h2>Sessions</h2>
-  <form id="createSessionForm">
-    <input type="text" id="sessionName" placeholder="Session Name" required>
-    <button type="submit" class="btn btn-secondary">➕ Create Session</button>
-  </form>
-  <table>
-    <thead>
-      <tr><th>Name</th><th>Date</th></tr>
-    </thead>
-    <tbody id="sessionsTableBody"></tbody>
-  </table>
+    <div id="attendance" class="section hidden">
+      <h2 class="text-xl font-semibold mb-4">Mark Attendance</h2>
+      <button onclick="startSession()" class="btn bg-green-600 hover:bg-green-700 mb-4">Start New Session</button>
+      <ul id="attendanceList" class="space-y-2"></ul>
+    </div>
 
-  <!-- QR Code -->
-  <h2>Current Session QR</h2>
-  <div id="qrCodeContainer"></div>
-
-  <!-- Attendance -->
-  <h2>Current Session Attendance</h2>
-  <table>
-    <thead>
-      <tr><th>Name</th><th>Email</th><th>Time</th></tr>
-    </thead>
-    <tbody id="attendanceTableBody"></tbody>
-  </table>
-
-  <!-- Stats -->
-  <h2>Stats</h2>
-  <div id="statsContainer"></div>
+    <div id="report" class="section hidden">
+      <h2 class="text-xl font-semibold mb-4">Attendance Report</h2>
+      <button onclick="loadReport()" class="btn bg-purple-600 hover:bg-purple-700 mb-4">Load Report</button>
+      <div id="reportContent"></div>
+    </div>
+  </div>
 
   <script>
-    const API_BASE = "http://localhost:5000"; // ⚡ change to your backend URL
-    let members = [];
-    let sessions = [];
-    let attendance = [];
+    const API = "/api";
 
-    function showMessage(msg, type) {
-      const div = document.createElement("div");
-      div.className = `message ${type}`;
-      div.textContent = msg;
-      document.getElementById("messages").appendChild(div);
-      setTimeout(() => div.remove(), 3000);
+    // Switch section
+    function showSection(id) {
+      document.querySelectorAll(".section").forEach(s => s.classList.add("hidden"));
+      document.getElementById(id).classList.remove("hidden");
     }
 
     // Load members
     async function loadMembers() {
-      const res = await fetch(`${API_BASE}/api/members`);
-      members = await res.json();
-      displayMembers();
-    }
-
-    function displayMembers() {
-      const tbody = document.getElementById("membersTableBody");
-      if (members.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No members yet</td></tr>';
-        return;
-      }
-      tbody.innerHTML = members.map(m => `
-        <tr>
-          <td>${m.name}</td>
-          <td>${m.email}</td>
-          <td>${m.phone || 'N/A'}</td>
-          <td>${new Date(m.created_at).toLocaleDateString()}</td>
-          <td style="display:flex;gap:6px;flex-wrap:wrap;">
-            <button class="btn btn-secondary" onclick="markAttendance('${m.id}')">✅ Mark Present</button>
-            <button class="btn btn-danger" onclick="deleteMember('${m.id}')">🗑️ Delete</button>
-          </td>
-        </tr>
+      const res = await fetch(`${API}/members`);
+      const members = await res.json();
+      const list = document.getElementById("memberList");
+      list.innerHTML = members.map(m => `
+        <li class="flex justify-between items-center bg-gray-100 p-2 rounded-lg">
+          <span>${m.name} (${m.phone})</span>
+          <button onclick="removeMember('${m.id}')" class="text-red-600">🗑</button>
+        </li>
+      `).join("");
+      // For attendance list
+      document.getElementById("attendanceList").innerHTML = members.map(m => `
+        <li class="flex justify-between items-center bg-gray-100 p-2 rounded-lg">
+          <span>${m.name}</span>
+          <button onclick="markAttendance('${m.id}')" class="btn bg-green-500 hover:bg-green-600">Mark Present</button>
+        </li>
       `).join("");
     }
 
-    async function deleteMember(id) {
-      if (!confirm("Delete this member?")) return;
-      const res = await fetch(`${API_BASE}/api/members/${id}`, { method: "DELETE" });
-      const result = await res.json();
-      if (res.ok) {
-        showMessage(result.message, "success");
-        loadMembers();
-      } else {
-        showMessage(result.error, "error");
-      }
-    }
-
-    async function markAttendance(memberId) {
-      try {
-        const res = await fetch(`${API_BASE}/api/attendance/manual`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ memberId })
-        });
-        const result = await res.json();
-        if (res.ok) {
-          showMessage(result.message || "Marked present!", "success");
-          loadAttendance();
-          loadStats();
-        } else {
-          showMessage(result.error || "Failed to mark", "error");
-        }
-      } catch (e) {
-        showMessage("Error marking attendance", "error");
-      }
-    }
-
-    // Load sessions
-    async function loadSessions() {
-      const res = await fetch(`${API_BASE}/api/sessions`);
-      sessions = await res.json();
-      const tbody = document.getElementById("sessionsTableBody");
-      tbody.innerHTML = sessions.map(s => `
-        <tr>
-          <td>${s.name}</td>
-          <td>${new Date(s.date).toLocaleString()}</td>
-        </tr>
-      `).join("");
-    }
-
-    // Load attendance
-    async function loadAttendance() {
-      const res = await fetch(`${API_BASE}/api/attendance/current`);
-      attendance = await res.json();
-      const tbody = document.getElementById("attendanceTableBody");
-      if (attendance.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="3" class="empty-state">No attendance yet</td></tr>';
-        return;
-      }
-      tbody.innerHTML = attendance.map(a => `
-        <tr>
-          <td>${a.member.name}</td>
-          <td>${a.member.email}</td>
-          <td>${new Date(a.time).toLocaleTimeString()}</td>
-        </tr>
-      `).join("");
-    }
-
-    // Load stats
-    async function loadStats() {
-      const res = await fetch(`${API_BASE}/api/stats`);
-      const stats = await res.json();
-      document.getElementById("statsContainer").innerHTML = `
-        <p>Total Members: ${stats.totalMembers}</p>
-        <p>Sessions Held: ${stats.totalSessions}</p>
-        <p>Avg Attendance: ${stats.averageAttendance}%</p>
-      `;
-    }
-
-    // Load QR
-    async function loadQRCode() {
-      const res = await fetch(`${API_BASE}/api/qrcode`);
-      const data = await res.json();
-      document.getElementById("qrCodeContainer").innerHTML = `
-        <img src="${data.qr}" alt="QR Code" style="width:200px;">
-      `;
-    }
-
-    // Forms
+    // Add member
     document.getElementById("addMemberForm").addEventListener("submit", async e => {
       e.preventDefault();
-      const name = document.getElementById("memberName").value;
-      const email = document.getElementById("memberEmail").value;
-      const phone = document.getElementById("memberPhone").value;
-      const res = await fetch(`${API_BASE}/api/members`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, phone })
+      const name = document.getElementById("name").value;
+      const phone = document.getElementById("phone").value;
+      await fetch(`${API}/members`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, phone })
       });
-      const result = await res.json();
-      if (res.ok) {
-        showMessage(result.message, "success");
-        loadMembers();
-      } else {
-        showMessage(result.error, "error");
-      }
       e.target.reset();
+      loadMembers();
     });
 
-    document.getElementById("createSessionForm").addEventListener("submit", async e => {
-      e.preventDefault();
-      const name = document.getElementById("sessionName").value;
-      const res = await fetch(`${API_BASE}/api/sessions`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name })
+    // Remove member
+    async function removeMember(id) {
+      await fetch(`${API}/members/${id}`, { method: "DELETE" });
+      loadMembers();
+    }
+
+    // Start session
+    async function startSession() {
+      await fetch(`${API}/sessions/start`, { method: "POST" });
+      alert("✅ New session started!");
+    }
+
+    // Mark attendance
+    async function markAttendance(memberId) {
+      const res = await fetch(`${API}/attendance`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memberId })
       });
-      const result = await res.json();
+      const data = await res.json();
       if (res.ok) {
-        showMessage(result.message, "success");
-        loadSessions();
-        loadQRCode();
+        alert("Attendance marked!");
       } else {
-        showMessage(result.error, "error");
+        alert(data.error);
       }
-      e.target.reset();
+    }
+
+    // Load report
+    async function loadReport() {
+      const res = await fetch(`${API}/attendance/report`);
+      const content = document.getElementById("reportContent");
+      if (!res.ok) {
+        content.innerHTML = "<p class='text-red-500'>No active session</p>";
+        return;
+      }
+      const data = await res.json();
+      content.innerHTML = `
+        <h3 class="font-semibold mb-2">Session: ${new Date(data.session.date).toLocaleString()}</h3>
+        <table class="w-full border border-gray-300">
+          <thead class="bg-gray-100">
+            <tr><th class="border p-2">Name</th><th class="border p-2">Phone</th><th class="border p-2">Status</th></tr>
+          </thead>
+          <tbody>
+            ${data.report.map(r => `
+              <tr>
+                <td class="border p-2">${r.name}</td>
+                <td class="border p-2">${r.phone}</td>
+                <td class="border p-2 ${r.attended ? "text-green-600 font-bold" : "text-red-600"}">
+                  ${r.attended ? "✔ Present" : "✘ Absent"}
+                </td>
+              </tr>`).join("")}
+          </tbody>
+        </table>
+      `;
+    }
+
+    // Styling helpers
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+      btn.className += " px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300";
+    });
+    document.querySelectorAll(".btn").forEach(btn => {
+      btn.className += " text-white px-3 py-1 rounded-lg";
+    });
+    document.querySelectorAll(".input").forEach(inp => {
+      inp.className += " border p-2 rounded-lg flex-1";
     });
 
-    // Init
     loadMembers();
-    loadSessions();
-    loadAttendance();
-    loadStats();
-    loadQRCode();
   </script>
 </body>
 </html>
